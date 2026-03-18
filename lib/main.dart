@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'video_screen.dart';
 
 void main() {
   runApp(MyApp());
@@ -20,7 +21,7 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("Mi reproductor"),
+        title: Text("Reproductor"),
       ),
       body: Center(
         child: Column(
@@ -38,12 +39,15 @@ class HomeScreen extends StatelessWidget {
 
             SizedBox(height: 40),
 
-            ElevatedButton(
-              onPressed: () {
-                print("Ir al reproductor");
-              },
-              child: Text("Abrir reproductor"),
-            ),
+           ElevatedButton(
+  onPressed: () {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => VideoScreen()),
+    );
+  },
+  child: Text("Abrir reproductor"),
+),
           ],
         ),
       ),
