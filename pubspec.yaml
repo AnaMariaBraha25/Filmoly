@@ -35,6 +35,10 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
 
+  # 7.4.4 tiene reportes de `PlatformException(channel-error)` en algunos entornos.
+  # Fijamos una versión anterior para estabilizar la inicialización del canal nativo.
+  flutter_vlc_player: 7.4.3
+  
 dev_dependencies:
   flutter_test:
     sdk: flutter
