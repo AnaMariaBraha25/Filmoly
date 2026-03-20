@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'video_screen.dart';
 
@@ -44,39 +43,45 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.black,
       appBar: AppBar(
-        title: Text("Reproductor de películas"),
+        backgroundColor: Colors.black,
+        title: const Text(
+          "Reproductor de películas",
+          style: TextStyle(color: Colors.white),
+        ),
+        centerTitle: true,
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              'Plataforma: ${defaultTargetPlatform.name} | web=$kIsWeb',
-              style: const TextStyle(fontSize: 12),
-            ),
-            const SizedBox(height: 12),
-
-            Icon(Icons.movie, size: 80),
-            SizedBox(height: 20),
-            Text(
-              "SELECCIONE UNA PELÍCULA",
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            SizedBox(height: 40),
-
-            // Botones para cada vídeo
-            for (var video in videos)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8.0),
-                child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => VideoScreen(
-                          videoUrl: video['url']!,
-                          title: video['title']!,
+      body: SingleChildScrollView(
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const SizedBox(height: 20),
+              const Icon(Icons.movie, size: 80, color: Colors.white),
+              const SizedBox(height: 20),
+              const Text(
+                "SELECCIONE UNA PELÍCULA",
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+              ),
+              const SizedBox(height: 40),
+              // Botones para cada vídeo
+              for (var video in videos)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16),
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.grey[800], // Botón gris oscuro
+                      foregroundColor: Colors.white, // Texto blanco
+                    ),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => VideoScreen(
+                            videoUrl: video['url']!,
+                            title: video['title']!,
                         ),
                       ),
                     );
@@ -87,6 +92,6 @@ class HomeScreen extends StatelessWidget {
           ],
         ),
       ),
-    );
+    ));
   }
 }
