@@ -13,6 +13,7 @@
 
          This Theme is only used starting with V2 of Flutter's Android embedding. -->
     <style name="NormalTheme" parent="@android:style/Theme.Light.NoTitleBar">
-        <item name="android:windowBackground">?android:colorBackground</item>
+        <!-- Evita fondo translúcido (#0) que rompe MediaRouteButton del plugin -->
+        <item name="android:windowBackground">@android:color/white</item>
     </style>
 </resources>

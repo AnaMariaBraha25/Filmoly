@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'video_screen.dart';
 
@@ -44,22 +45,27 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("Reproductor"),
+        title: Text("Reproductor de películas"),
       ),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            Text(
+              'Plataforma: ${defaultTargetPlatform.name} | web=$kIsWeb',
+              style: const TextStyle(fontSize: 12),
+            ),
+            const SizedBox(height: 12),
 
             Icon(Icons.movie, size: 80),
             SizedBox(height: 20),
             Text(
-              "Bienvenido",
-              style: TextStyle(fontSize: 24),
+              "SELECCIONE UNA PELÍCULA",
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             SizedBox(height: 40),
 
-            // Botones dinámicos para cada vídeo
+            // Botones para cada vídeo
             for (var video in videos)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 8.0),
@@ -68,11 +74,11 @@ class HomeScreen extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                          builder: (context) =>
-                              VideoScreen(
-                                videoUrl: video['url']!,
-                                title: video['title']!,
-                              )),
+                        builder: (context) => VideoScreen(
+                          videoUrl: video['url']!,
+                          title: video['title']!,
+                        ),
+                      ),
                     );
                   },
                   child: Text(video['title']!),

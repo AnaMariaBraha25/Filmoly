@@ -38,6 +38,8 @@ dependencies:
   # 7.4.4 tiene reportes de `PlatformException(channel-error)` en algunos entornos.
   # Fijamos una versión anterior para estabilizar la inicialización del canal nativo.
   flutter_vlc_player: 7.4.3
+  flutter_cast_video: ^1.0.0
+  video_player: ^2.11.1
   
 dev_dependencies:
   flutter_test:
