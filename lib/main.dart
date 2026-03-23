@@ -1,7 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:media_kit/media_kit.dart';
 import 'video_screen.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  try {
+    MediaKit.ensureInitialized();
+  } catch (e) {
+    debugPrint('MediaKit initialization failed: $e');
+  }
   runApp(const MyApp());
 }
 
@@ -53,45 +60,58 @@ class HomeScreen extends StatelessWidget {
         centerTitle: true,
         iconTheme: const IconThemeData(color: Colors.white),
       ),
-      body: SingleChildScrollView(
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const SizedBox(height: 20),
-              const Icon(Icons.movie, size: 80, color: Colors.white),
-              const SizedBox(height: 20),
-              const Text(
-                "SELECCIONE UNA PELÍCULA",
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
-              ),
-              const SizedBox(height: 40),
-              // Botones para cada vídeo
-              for (var video in videos)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16),
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.grey[800], // Botón gris oscuro
-                      foregroundColor: Colors.white, // Texto blanco
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox(height: 20),
+                    const Icon(Icons.movie, size: 80, color: Colors.white),
+                    const SizedBox(height: 20),
+                    const Text(
+                      "SELECCIONE UNA PELÍCULA",
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
                     ),
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => VideoScreen(
-                            videoUrl: video['url']!,
-                            title: video['title']!,
+                    const SizedBox(height: 40),
+                    // Botones para cada vídeo
+                    for (var video in videos)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16),
+                        child: SizedBox(
+                          width: 280,
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.grey[800], // Botón gris oscuro
+                              foregroundColor: Colors.white, // Texto blanco
+                            ),
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => VideoScreen(
+                                    videoUrl: video['url']!,
+                                    title: video['title']!,
+                                  ),
+                                ),
+                              );
+                            },
+                            child: Text(video['title']!),
+                          ),
                         ),
                       ),
-                    );
-                  },
-                  child: Text(video['title']!),
+                    const SizedBox(height: 20),
+                  ],
                 ),
               ),
-          ],
-        ),
+            ),
+          );
+        },
       ),
-    ));
+    );
   }
 }
