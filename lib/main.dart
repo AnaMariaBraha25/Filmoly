@@ -7,6 +7,7 @@ import 'home_movie_search_screen.dart';
 import 'search_paths_store.dart';
 import 'video_info_screen.dart';
 import 'continue_watching_screen.dart';
+import 'movie_details_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -44,22 +45,25 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  // Vídeos con nombre y URL
+  // Vídeos con nombre, URL y TMDB ID (CORRECTOS - IDs verificados en TMDB)
   final List<Map<String, String>> videos = [
     {
-      'title': 'Dreddo (MP4)',
+      'title': 'Caza Legal (1995)',
       'url':
           'https://media.retroteca.org/Retroteca/PELICULAS/Dreddo/%281995%29%20Caza%20Legal.%20Andrew%20Sipes.%20ESTADOS%20UNIDOS%20%23122360%20%5B11859%5D%20tt0113010.mp4',
+      'tmdbId': '11859', // Fair Game / Caza Legal (TMDB verificado)
     },
     {
-      'title': 'Desperado (MKV)',
+      'title': 'Desperado (1995)',
       'url':
           'https://media.retroteca.org/Retroteca/PELICULAS/Dreddo/%281995%29%20Desperado.%20Robert%20Rodriguez.%20ESTADOS%20UNIDOS%2C%20MEXICO%20%2390911%20%5B1053600%5D%20tt0112851.mkv',
+      'tmdbId': '8068', // Desperado (TMDB verificado)
     },
     {
-      'title': 'Dororo (AVI)',
+      'title': 'Dororo (2007)',
       'url':
           'https://media.retroteca.org/Retroteca/PELICULAS/dororo/%282005%29%20Leyenda%20Mortal.%20Mark%20Duffield.%20TAILANDIA%20%23130906%20%5B51077%5D%20tt0436359.avi',
+      'tmdbId': '16221', // Dororo (TMDB verificado - 2007)
     },
   ];
 
@@ -105,63 +109,91 @@ class _HomeScreenState extends State<HomeScreen> {
                           vertical: 8.0,
                           horizontal: 16,
                         ),
-                        child: SizedBox(
-                          width: 280,
-                          child: ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor:
-                                  Colors.grey[800], // Botón gris oscuro
-                              foregroundColor: Colors.white, // Texto blanco
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            SizedBox(
+                              width: 200,
+                              child: ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor:
+                                      Colors.grey[800], // Botón gris oscuro
+                                  foregroundColor: Colors.white, // Texto blanco
+                                ),
+                                onPressed: () async {
+                                  if (video['title']!.contains('Desperado')) {
+                                    final selectedPaths = await SearchPathsStore.load();
+                                    if (selectedPaths.isEmpty) {
+                                      if (!context.mounted) return;
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                            'No hay rutas guardadas. Configúralas en "Gestionar rutas y buscar vídeos".',
+                                          ),
+                                        ),
+                                      );
+                                      return;
+                                    }
+
+                                    // Paso 2: buscar archivos para Desperado
+                                    final movie = MovieReference(
+                                      title: 'Desperado',
+                                      year: 1995,
+                                      tmdbId: '8078',
+                                      imdbId: 'tt0112851',
+                                    );
+
+                                    if (!context.mounted) return;
+                                    await Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => SearchResultsScreen(
+                                          searchPaths: selectedPaths,
+                                          movie: movie,
+                                          autoPlayBestMatch: true,
+                                        ),
+                                      ),
+                                    );
+                                  } else {
+                                    if (!mounted) return;
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => VideoScreen(
+                                          videoUrl: video['url']!,
+                                          title: video['title']!,
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                },
+                                child: Text(video['title']!),
+                              ),
                             ),
-                            onPressed: () async {
-                              if (video['title']!.contains('Desperado')) {
-                                final selectedPaths = await SearchPathsStore.load();
-                                if (selectedPaths.isEmpty) {
-                                  if (!context.mounted) return;
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'No hay rutas guardadas. Configúralas en "Gestionar rutas y buscar vídeos".',
+                            const SizedBox(width: 8),
+                            SizedBox(
+                              width: 60,
+                              child: ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.cyan[700],
+                                  foregroundColor: Colors.white,
+                                  padding: EdgeInsets.zero,
+                                ),
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => MovieDetailsScreen(
+                                        tmdbId: video['tmdbId']!,
+                                        title: video['title']!,
                                       ),
                                     ),
                                   );
-                                  return;
-                                }
-
-                                // Paso 2: buscar archivos para Desperado
-                                final movie = MovieReference(
-                                  title: 'Desperado',
-                                  year: 1995,
-                                  tmdbId: '8078',
-                                  imdbId: 'tt0112851',
-                                );
-
-                                if (!context.mounted) return;
-                                await Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => SearchResultsScreen(
-                                      searchPaths: selectedPaths,
-                                      movie: movie,
-                                      autoPlayBestMatch: true,
-                                    ),
-                                  ),
-                                );
-                              } else {
-                                if (!mounted) return;
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => VideoScreen(
-                                      videoUrl: video['url']!,
-                                      title: video['title']!,
-                                    ),
-                                  ),
-                                );
-                              }
-                            },
-                            child: Text(video['title']!),
-                          ),
+                                },
+                                child: const Icon(Icons.info, size: 20),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     const SizedBox(height: 20),
