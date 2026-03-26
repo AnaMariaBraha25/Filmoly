@@ -1,14 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
 import 'video_screen.dart';
+import 'movie_utils.dart';
+import 'search_results_screen.dart';
+import 'home_movie_search_screen.dart';
+import 'search_paths_store.dart';
+import 'video_info_screen.dart';
+import 'continue_watching_screen.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
   try {
+    debugPrint('Main: initializing MediaKit...');
     MediaKit.ensureInitialized();
-  } catch (e) {
-    debugPrint('MediaKit initialization failed: $e');
+    debugPrint('Main: MediaKit initialized successfully.');
+  } catch (e, st) {
+    debugPrint('Main: MediaKit initialization failed: $e');
+    debugPrint('$st');
   }
+
   runApp(const MyApp());
 }
 
@@ -25,9 +36,14 @@ class MyApp extends StatelessWidget {
   }
 }
 
-class HomeScreen extends StatelessWidget {
-  HomeScreen({super.key});
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key});
 
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
   // Vídeos con nombre y URL
   final List<Map<String, String>> videos = [
     {
@@ -75,35 +91,151 @@ class HomeScreen extends StatelessWidget {
                     const SizedBox(height: 20),
                     const Text(
                       "SELECCIONE UNA PELÍCULA",
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
                     ),
                     const SizedBox(height: 40),
                     // Botones para cada vídeo
                     for (var video in videos)
                       Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16),
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 8.0,
+                          horizontal: 16,
+                        ),
                         child: SizedBox(
                           width: 280,
                           child: ElevatedButton(
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.grey[800], // Botón gris oscuro
+                              backgroundColor:
+                                  Colors.grey[800], // Botón gris oscuro
                               foregroundColor: Colors.white, // Texto blanco
                             ),
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => VideoScreen(
-                                    videoUrl: video['url']!,
-                                    title: video['title']!,
+                            onPressed: () async {
+                              if (video['title']!.contains('Desperado')) {
+                                final selectedPaths = await SearchPathsStore.load();
+                                if (selectedPaths.isEmpty) {
+                                  if (!context.mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'No hay rutas guardadas. Configúralas en "Gestionar rutas y buscar vídeos".',
+                                      ),
+                                    ),
+                                  );
+                                  return;
+                                }
+
+                                // Paso 2: buscar archivos para Desperado
+                                final movie = MovieReference(
+                                  title: 'Desperado',
+                                  year: 1995,
+                                  tmdbId: '8078',
+                                  imdbId: 'tt0112851',
+                                );
+
+                                if (!context.mounted) return;
+                                await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => SearchResultsScreen(
+                                      searchPaths: selectedPaths,
+                                      movie: movie,
+                                      autoPlayBestMatch: true,
+                                    ),
                                   ),
-                                ),
-                              );
+                                );
+                              } else {
+                                if (!mounted) return;
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => VideoScreen(
+                                      videoUrl: video['url']!,
+                                      title: video['title']!,
+                                    ),
+                                  ),
+                                );
+                              }
                             },
                             child: Text(video['title']!),
                           ),
                         ),
                       ),
+                    const SizedBox(height: 20),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: SizedBox(
+                        width: 280,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor:
+                                Colors.purple[800], // Botón púrpura para diferenciar
+                            foregroundColor: Colors.white,
+                          ),
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    const VideoInfoScreen(),
+                              ),
+                            );
+                          },
+                          child: const Text('📊 Analizar Metadatos de Video'),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: SizedBox(
+                        width: 280,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor:
+                                Colors.orange[700], // Botón naranja para continuar viendo
+                            foregroundColor: Colors.white,
+                          ),
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    const ContinueWatchingScreen(),
+                              ),
+                            );
+                          },
+                          child: const Text('▶ Continuar viendo'),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: SizedBox(
+                        width: 280,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor:
+                                Colors.blue[800], // Botón azul para diferenciar
+                            foregroundColor: Colors.white,
+                          ),
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    const HomeMovieSearchScreen(),
+                              ),
+                            );
+                          },
+                          child: const Text('Gestionar rutas y buscar vídeos'),
+                        ),
+                      ),
+                    ),
                     const SizedBox(height: 20),
                   ],
                 ),
