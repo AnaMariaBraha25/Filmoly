@@ -54,11 +54,41 @@ class _VideoScreenState extends State<VideoScreen> {
   Duration _currentPosition = Duration.zero;
   Duration _videoDuration = Duration.zero;
   DateTime _lastProgressSave = DateTime.now();
+  Duration? _loadedInitialPosition;
+  
+  // Flag para evitar guardar progreso en los primeros 3 segundos
+  // (mientras se aplica el seek)
+  bool _canSaveProgress = false;
+  bool _needsRescheduleSeek = false;
 
   @override
   void initState() {
     super.initState();
-    _startPlayback();
+    _loadProgressAndStartPlayback();
+  }
+
+  Future<void> _loadProgressAndStartPlayback() async {
+    debugPrint('VideoScreen: _loadProgressAndStartPlayback() iniciado para: ${widget.videoUrl}');
+    
+    // Si ya tiene posición initial explícita, úsala
+    if (widget.initialPosition != null) {
+      _loadedInitialPosition = widget.initialPosition;
+      debugPrint('VideoScreen: Usando initialPosition explícito: ${widget.initialPosition}');
+    } else {
+      // Si no, intenta cargar el progreso guardado
+      debugPrint('VideoScreen: Buscando progreso guardado...');
+      final savedProgress = await WatchProgressManager.getProgressForVideo(widget.videoUrl);
+      if (savedProgress != null && savedProgress.progress > 0) {
+        _loadedInitialPosition = Duration(seconds: savedProgress.positionSeconds.toInt());
+        debugPrint('VideoScreen: ✓ Cargado progreso guardado: ${savedProgress.progress.toStringAsFixed(1)}% => ${_loadedInitialPosition!.inSeconds}s');
+      } else {
+        debugPrint('VideoScreen: No hay progreso guardado, comenzando desde 0');
+      }
+    }
+    
+    if (mounted) {
+      await _startPlayback();
+    }
   }
 
   Future<void> _startPlayback() async {
@@ -111,14 +141,36 @@ class _VideoScreenState extends State<VideoScreen> {
     debugPrint('VideoScreen: opening media URI=$uri');
 
     await _player!.open(Media(uri.toString()));
+    debugPrint('VideoScreen: ✓ Media abierto');
     
-    // Si hay una posición inicial, busca a ella después de abrir
-    if (widget.initialPosition != null) {
-      await _player!.seek(widget.initialPosition!);
-      debugPrint('VideoScreen: seeked to initial position ${widget.initialPosition}');
+    // Pausa explícitamente
+    debugPrint('VideoScreen: pausando...');
+    await _player!.pause();
+    
+    // Espera un poco
+    await Future.delayed(const Duration(milliseconds: 1000));
+    
+    // Ahora aplica el seek si es necesario
+    if (_loadedInitialPosition != null && _loadedInitialPosition!.inSeconds > 0) {
+      debugPrint('VideoScreen: ► BUSCANDO a ${_loadedInitialPosition!.inSeconds}s');
+      await _player!.seek(_loadedInitialPosition!);
+      await Future.delayed(const Duration(milliseconds: 500));
+      debugPrint('VideoScreen: ✓ SEEK completado, posición debería ser ${_loadedInitialPosition!.inSeconds}s');
     }
     
+    // Ahora inicia la reproducción
+    debugPrint('VideoScreen: ► INICIANDO reproducción');
     await _player!.play();
+    await Future.delayed(const Duration(milliseconds: 200));
+    debugPrint('VideoScreen: ✓ reproducción iniciada');
+
+    // Bloquea el guardado por 2 segundos (tiempo de estabilización)
+    _canSaveProgress = false;
+    debugPrint('VideoScreen: 🔒 Bloqueando guardado de progreso...');
+    Future.delayed(const Duration(seconds: 2), () {
+      _canSaveProgress = true;
+      debugPrint('VideoScreen: 🔓 Guardado de progreso PERMITIDO');
+    });
 
     // Observa la posición actual
     _player!.stream.position.listen(
@@ -127,11 +179,35 @@ class _VideoScreenState extends State<VideoScreen> {
           _currentPosition = position;
         });
         
-        // Guarda progreso cada 5 segundos
-        final now = DateTime.now();
-        if (now.difference(_lastProgressSave).inSeconds >= 5) {
-          _saveProgressToStorage();
-          _lastProgressSave = now;
+        // Debug: mostrar posición cada 1 segundo
+        if (position.inSeconds % 1 == 0) {
+          debugPrint('VideoScreen: posición actual = ${position.inSeconds}s, guardado=${_canSaveProgress ? "✓" : "✗"}');
+        }
+        
+        // FIX: Si debería estar en una posición específica pero está en 0, re-buscar
+        if (_loadedInitialPosition != null && 
+            _loadedInitialPosition!.inSeconds > 0 && 
+            position.inSeconds == 0 && 
+            !_needsRescheduleSeek) {
+          debugPrint('VideoScreen: ⚠️  DETECTADO: posición 0 cuando debería ser ${_loadedInitialPosition!.inSeconds}s - re-buscando...');
+          _needsRescheduleSeek = true;
+          Future.delayed(const Duration(milliseconds: 100), () async {
+            if (_player != null) {
+              debugPrint('VideoScreen: ► RE-BUSCANDO a ${_loadedInitialPosition!.inSeconds}s');
+              await _player!.seek(_loadedInitialPosition!);
+              debugPrint('VideoScreen: ✓ RE-SEEK completado');
+              _needsRescheduleSeek = false;
+            }
+          });
+        }
+        
+        // Guarda progreso SOLO si ha pasado tiempo suficiente
+        if (_canSaveProgress) {
+          final now = DateTime.now();
+          if (now.difference(_lastProgressSave).inSeconds >= 5) {
+            _saveProgressToStorage();
+            _lastProgressSave = now;
+          }
         }
       },
       onError: (error) {
@@ -142,9 +218,17 @@ class _VideoScreenState extends State<VideoScreen> {
     // Observa la duración
     _player!.stream.duration.listen(
       (duration) {
+        debugPrint('VideoScreen: 📏 Duration stream emitió: ${duration.inSeconds}s');
         setState(() {
           _videoDuration = duration;
         });
+        
+        // Si es la primera vez que obtenemos duración válida, guarda progreso
+        if (duration.inSeconds > 0 && _videoDuration.inSeconds == 0) {
+          debugPrint('VideoScreen: 💾 Primera duración válida recibida, guardando progreso actualizado...');
+          _canSaveProgress = true;
+          _saveProgressToStorage();
+        }
       },
       onError: (error) {
         debugPrint('VideoScreen: duration stream error: $error');
@@ -153,7 +237,7 @@ class _VideoScreenState extends State<VideoScreen> {
 
     _player!.stream.playing.listen(
       (playing) {
-        debugPrint('VideoScreen: playing state $playing');
+        debugPrint('VideoScreen: playing state = $playing');
       },
       onError: (error) {
         debugPrint('VideoScreen: playing stream error: $error');
@@ -916,28 +1000,68 @@ class _VideoScreenState extends State<VideoScreen> {
   }
 
   Future<void> _saveProgressToStorage() async {
-    // Solo guarda si hay una duración válida y el progreso no es trivial
-    if (_videoDuration.inSeconds <= 0) return;
+    // Ahora intenta usar la duración del player si está disponible
+    Duration durToUse = _videoDuration;
+    if (_player != null && _player!.state.duration.inSeconds > 0) {
+      durToUse = _player!.state.duration;
+    }
+    
+    // Solo guarda si hay una duración válida
+    if (durToUse.inSeconds <= 0) {
+      debugPrint('VideoScreen: 🔒 NO guardando - duración no disponible (${durToUse.inSeconds}s)');
+      return;
+    }
+    
+    // Si está en fase de inicialización y la posición es pequeña, NO guarda
+    if (!_canSaveProgress && _currentPosition.inSeconds < 5) {
+      debugPrint('VideoScreen: 🔒 NO guardando - en fase de inicialización (${_currentPosition.inSeconds}s)');
+      return;
+    }
     
     final progress = WatchProgress(
       videoUrl: widget.videoUrl,
       title: widget.title,
       positionSeconds: _currentPosition.inSeconds.toDouble(),
-      durationSeconds: _videoDuration.inSeconds.toDouble(),
+      durationSeconds: durToUse.inSeconds.toDouble(),
       lastWatched: DateTime.now(),
     );
     
     await WatchProgressManager.saveProgress(progress);
-    debugPrint('VideoScreen: progreso guardado - ${progress.progress.toStringAsFixed(1)}%');
+    debugPrint('VideoScreen: ✓ progreso guardado - ${progress.progress.toStringAsFixed(1)}% (${_currentPosition.inSeconds}s/${durToUse.inSeconds}s)');
   }
 
   @override
   void dispose() {
-    // Guarda el progreso antes de salir
-    _saveProgressToStorage();
+    // Siempre guarda el progreso final al salir, sin importar el flag
+    _canSaveProgress = true;
+    
+    // Intenta obtener la duración del player si aún está disponible
+    Duration actualDuration = _videoDuration;
+    if (_player != null && _player!.state.duration.inSeconds > 0) {
+      actualDuration = _player!.state.duration;
+      debugPrint('VideoScreen: dispose() - usando duración del player: ${actualDuration.inSeconds}s');
+    }
+    
+    debugPrint('VideoScreen: dispose() - guardando progreso final (#${_currentPosition.inSeconds}s/${actualDuration.inSeconds}s)...');
+    
+    // Guarda con la duración correcta - sin esperar
+    if (actualDuration.inSeconds > 0) {
+      final progress = WatchProgress(
+        videoUrl: widget.videoUrl,
+        title: widget.title,
+        positionSeconds: _currentPosition.inSeconds.toDouble(),
+        durationSeconds: actualDuration.inSeconds.toDouble(),
+        lastWatched: DateTime.now(),
+      );
+      
+      WatchProgressManager.saveProgress(progress)
+          .then((_) => debugPrint('VideoScreen: ✓ Progreso final guardado en dispose()'))
+          .catchError((e) => debugPrint('VideoScreen: ✗ Error guardando en dispose(): $e'));
+    } else {
+      debugPrint('VideoScreen: ⚠️ No se guardó en dispose() - duración inválida');
+    }
 
     _webController?.dispose();
-
     _player?.dispose();
     super.dispose();
   }
@@ -1001,17 +1125,6 @@ class _VideoScreenState extends State<VideoScreen> {
                           runSpacing: 8,
                           children: [
                             IconButton(
-                              icon: Icon(
-                                _isPlaying ? Icons.pause : Icons.play_arrow,
-                                color: Colors.white,
-                              ),
-                              onPressed: _togglePlayPause,
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.replay, color: Colors.white),
-                              onPressed: _restartFromZero,
-                            ),
-                            IconButton(
                               icon: const Icon(
                                 Icons.audiotrack,
                                 color: Colors.white,
@@ -1030,20 +1143,6 @@ class _VideoScreenState extends State<VideoScreen> {
                           ],
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      Center(
-                        child: TextButton.icon(
-                          onPressed: _openFallbackExternal,
-                          icon: const Icon(
-                            Icons.open_in_new,
-                            color: Colors.white70,
-                          ),
-                          label: const Text(
-                            'Abrir en reproductor externo',
-                            style: TextStyle(color: Colors.white70),
-                          ),
-                        ),
-                      ),
                     ] else ...[
                       Center(
                         child: Column(
@@ -1060,11 +1159,6 @@ class _VideoScreenState extends State<VideoScreen> {
                                   'No se puede reproducir el vídeo en esta plataforma',
                               textAlign: TextAlign.center,
                               style: const TextStyle(color: Colors.white),
-                            ),
-                            const SizedBox(height: 12),
-                            ElevatedButton(
-                              onPressed: _openFallbackExternal,
-                              child: const Text('Abrir con reproductor externo'),
                             ),
                           ],
                         ),
